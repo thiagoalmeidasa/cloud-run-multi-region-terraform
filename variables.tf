@@ -25,6 +25,7 @@ variable "name" {
 }
 
 variable "image" {
+  type        = string
   description = "container image to deploy"
   default     = "gcr.io/google-samples/zone-printer:0.2"
 }

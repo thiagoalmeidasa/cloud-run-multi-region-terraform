@@ -2,9 +2,9 @@ provider "google" {
   project = var.project_id
 }
 
-data "google_cloud_run_locations" "default" { }
+data "google_cloud_run_locations" "default" {}
 
-resource "google_cloud_run_service" "default" {
+resource "google_cloud_run_v2_service" "default" {
   for_each = toset(data.google_cloud_run_locations.default.locations)
 
   name     = "${var.name}--${each.value}"
@@ -12,20 +12,18 @@ resource "google_cloud_run_service" "default" {
   project  = var.project_id
 
   template {
-    spec {
       containers {
         image = var.image
       }
-    }
   }
 }
 
 resource "google_cloud_run_service_iam_member" "default" {
   for_each = toset(data.google_cloud_run_locations.default.locations)
 
-  location = google_cloud_run_service.default[each.key].location
-  project  = google_cloud_run_service.default[each.key].project
-  service  = google_cloud_run_service.default[each.key].name
+  location = google_cloud_run_v2_service.default[each.key].location
+  project  = google_cloud_run_v2_service.default[each.key].project
+  service  = google_cloud_run_v2_service.default[each.key].name
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
@@ -36,15 +34,15 @@ resource "google_compute_region_network_endpoint_group" "default" {
 
   name                  = "${var.name}--neg--${each.key}"
   network_endpoint_type = "SERVERLESS"
-  region                = google_cloud_run_service.default[each.key].location
+  region                = google_cloud_run_v2_service.default[each.key].location
   cloud_run {
-    service = google_cloud_run_service.default[each.key].name
+    service = google_cloud_run_v2_service.default[each.key].name
   }
 }
 
 module "lb-http" {
-  source            = "GoogleCloudPlatform/lb-http/google//modules/serverless_negs"
-  version           = "~> 4.5"
+  source  = "GoogleCloudPlatform/lb-http/google//modules/serverless_negs"
+  version = "~> 9.0"
 
   project = var.project_id
   name    = var.name
@@ -64,7 +62,7 @@ module "lb-http" {
       }
 
       groups = [
-        for neg in google_compute_region_network_endpoint_group.default:
+        for neg in google_compute_region_network_endpoint_group.default :
         {
           group = neg.id
         }
